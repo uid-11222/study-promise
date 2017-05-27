@@ -4,21 +4,29 @@ const global = Function(`return this`)();
 
 class Prom {
 
-  constructor(f) {
-    f(arg => this._res(arg), arg => this._rej(arg));
+  constructor(executor) {
+    executor(arg => this._res(arg), arg => this._rej(arg));
+  }
+
+  _then(prom) {
+    this._thens = this._thens || [];
+    this._thens.push(prom);
+  }
+
+  _catch(prom) {
+    this._catchs = this._catchs || [];
+    this._catchs.push(prom);
   }
 
   then(thenF, catchF) {
     const prom = Object.create(Prom.prototype);
     if (thenF) {
-      this._thens = this._thens || [];
       prom._thenF = thenF;
-      this._thens.push(prom);
+      this._then(prom);
     }
     if (catchF) {
-      this._catchs = this._catchs || [];
       prom._catchF = catchF;
-      this._catchs.push(prom);
+      this._catch(prom);
     }
     return prom;
   }
@@ -26,29 +34,86 @@ class Prom {
   catch(catchF) {
     const prom = Object.create(Prom.prototype);
     if (catchF) {
-      this._catchs = this._catchs || [];
       prom._catchF = catchF;
-      this._catchs.push(prom);
+      this._catch(prom);
     }
     return prom;
   }
 
   static resolve(value) {
     const prom = Object.create(Prom.prototype);
-    prom._state = true;
-    prom._value = value;
+    prom._res(value);
     return prom;
   }
 
   static reject(value) {
     const prom = Object.create(Prom.prototype);
-    prom._state = false;
-    prom._value = value;
+    prom._rej(value);
     return prom;
   }
 
   static all(proms) {
-    
+    proms = Array.from(proms);
+    if (proms.length === 0) {
+      return Prom.resolve([]);
+    }
+    const prom = Object.create(Prom.prototype);
+    prom._value = new Array(proms.length);
+    prom._all = proms;
+    prom._count = 0;
+    for (let i = 0; i < proms.length; ++i) {
+      const cur = proms[i];
+      cur._then(prom);
+      cur._catch(prom);
+    }
+    return prom;
+  }
+
+  static race(proms) {
+    proms = Array.from(proms);
+    const prom = Object.create(Prom.prototype);
+    for (let i = 0; i < proms.length; ++i) {
+      const cur = proms[i];
+      cur._then(prom);
+      cur._catch(prom);
+    }
+    return prom;
+  }
+
+  _res(value) {
+    if (`_state` in this) {
+      return;
+    }
+    if (value instanceof Prom) {
+      value._then(this);
+      value._catch(this);
+      return;
+    }
+    this._state = true;
+    this._value = value;
+    const thens = this._thens;
+    if (!thens) {
+      return;
+    }
+    for (let i = 0; i < thens.length; ++i) {
+      const cur = thens[i];
+      if (cur._all) {
+        cur._count++;
+        const index = cur._all.indexOf(this);
+        cur._all[index] = null;
+        cur._value[index] = value;
+        if (cur._count === cur._all.length) {
+          cur._res(cur._value);
+        }
+        continue;
+      }
+      const _thenF = cur._thenF;
+      let curValue = value;
+      if (_thenF) {
+        curValue = _thenF(curValue);
+      }
+      cur._res(curValue);
+    }
   }
 
 }
