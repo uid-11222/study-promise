@@ -1,0 +1,28 @@
+{
+  "name": "study-promise",
+  "version": "0.1.0",
+  "description": "Study Promise by creating simple polyfill.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha test.js",
+    "push": "git push"
+  },
+  "keywords": [
+    "study",
+    "promise"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "mocha": "^3.4.1"
+  },
+  "author": "uid-11222",
+  "homepage": "https://github.com/uid-11222/study-promise",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uid-11222/study-promise"
+  },
+  "bugs": {
+    "url": "https://github.com/uid-11222/study-promise/issues"
+  },
+  "license": "MIT"
+}
