@@ -84,9 +84,8 @@ class Prom {
     if (`_state` in this) {
       return;
     }
-    if (value instanceof Prom) {
-      value._then(this);
-      value._catch(this);
+    if (value && typeof value.then === `function`) {
+      value.then(arg => this._res(arg), arg => this._rej(arg));
       return;
     }
     this._state = true;
