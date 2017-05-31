@@ -1,51 +1,56 @@
-'use strict'; {
+'use strict';
 
-const global = Function(`return this`)();
+module.exports = class Prom {
 
-class Prom {
-
+  /**
+   * @param {function} executor
+   */
   constructor(executor) {
     executor(arg => this._res(arg), arg => this._rej(arg));
   }
 
-  _then(prom) {
-    this._thens = this._thens || [];
-    this._thens.push(prom);
-  }
-
-  _catch(prom) {
-    this._catchs = this._catchs || [];
-    this._catchs.push(prom);
-  }
-
+  /**
+   * @param {function} thenF - resolve callback
+   * @param {function} catchF - reject callback
+   * @return {!Prom}
+   */
   then(thenF, catchF) {
     const prom = Object.create(Prom.prototype);
     if (thenF) {
       prom._thenF = thenF;
-      this._then(prom);
+      this._thens = this._thens || [];
+      this._thens.push(prom);
     }
     if (catchF) {
       prom._catchF = catchF;
-      this._catch(prom);
+      this._catchs = this._catchs || [];
+      this._catchs.push(prom);
     }
     return prom;
   }
 
+  /**
+   * @param {function} catchF - reject callback
+   * @return {!Prom}
+   */
   catch(catchF) {
-    const prom = Object.create(Prom.prototype);
-    if (catchF) {
-      prom._catchF = catchF;
-      this._catch(prom);
-    }
-    return prom;
+    return this.then(null, catchF);
   }
 
+  /**
+   * @param {*} value
+   * @return {!Prom} - resolved Prom
+   */
   static resolve(value) {
     const prom = Object.create(Prom.prototype);
     prom._res(value);
     return prom;
   }
 
+  /**
+   * @param {*} value
+   * @return {!Prom} - rejected Prom
+   */
   static reject(value) {
     const prom = Object.create(Prom.prototype);
     prom._rej(value);
@@ -80,6 +85,9 @@ class Prom {
     return prom;
   }
 
+  /**
+   * @param {*} value
+   */
   _res(value) {
     if (`_state` in this) {
       return;
@@ -90,10 +98,7 @@ class Prom {
     }
     this._state = true;
     this._value = value;
-    const thens = this._thens;
-    if (!thens) {
-      return;
-    }
+    const thens = this._thens || [];
     for (let i = 0; i < thens.length; ++i) {
       const cur = thens[i];
       if (cur._all) {
@@ -113,10 +118,48 @@ class Prom {
       }
       cur._res(curValue);
     }
+    const catchs = this._catchs || [];
+    for (let i = 0; i < catchs.length; ++i) {
+      const cur = catchs[i];
+      cur._res(value);
+    }
   }
 
-}
+  /**
+   * @param {*} value
+   */
+  _rej(value) {
+    if (`_state` in this) {
+      return;
+    }
+    this._state = false;
+    this._value = value;
+    const catchs = this._catchs || [];
+    for (let i = 0; i < catchs.length; ++i) {
+      const cur = catchs[i];
+      const _catchF = cur._catchF;
+      let curValue = value;
+      if (_catchF) {
+        curValue = _catchF(curValue);
+      }
+      cur._res(curValue);
+    }
+    const thens = this._thens || [];
+    for (let i = 0; i < thens.length; ++i) {
+      const cur = thens[i];
+      cur._rej(value);
+    }
+  }
 
-global.Prom = Prom;
+  /**
+   * @return {string}
+   */
+  toString() {
+    if (`_state` in this) {
+      const state = this._state ? `` : ` <rejected>`;
+      return `Prom {${state} ${this._value} }`;
+    }
+    return `Prom { <pending> }`;
+  }
 
 }

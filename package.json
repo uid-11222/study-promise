@@ -4,7 +4,7 @@
   "description": "Study Promise by creating simple polyfill.",
   "main": "index.js",
   "scripts": {
-    "test": "mocha test.js",
+    "test": "./node_modules/mocha/bin/mocha test.js",
     "push": "git push"
   },
   "keywords": [
