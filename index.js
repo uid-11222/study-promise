@@ -43,16 +43,14 @@ module.exports = class Prom {
    */
   then(thenF, catchF) {
     const prom = Object.create(Prom.prototype);
-    if (thenF) {
+    if (typeof thenF === `function`) {
       prom._thenF = thenF;
-      this._thens = this._thens || [];
-      this._thens.push(prom);
     }
-    if (catchF) {
+    if (typeof catchF === `function`) {
       prom._catchF = catchF;
-      this._catchs = this._catchs || [];
-      this._catchs.push(prom);
     }
+    this._reactions = this._reactions || [];
+    this._reactions.push(prom);
     if (`_state` in this) {
       enqueueJob(this);
     }
@@ -130,7 +128,7 @@ module.exports = class Prom {
     }
     this._state = true;
     this._value = value;
-    this._runReactions();
+    enqueueJob(this);
   }
 
   /**
@@ -142,40 +140,36 @@ module.exports = class Prom {
     }
     this._state = false;
     this._value = value;
-    this._runReactions();
+    enqueueJob(this);
   }
 
   _runReactions() {
-    let [r1, r2] = [this._thens || [], this._catchs || []];
-    let handlerName = `_thenF`, action = `_res`;
+    const { _reactions = [], _value, _state } = this;
+    const handlerName = _state ? `_thenF` : `_catchF`;
     let cur;
-    if (this._state === false) {
-      [r1, r2] = [r2, r1];
-      handlerName = `_catchF`;
-      action = `_rej`;
-    }
-    while(cur = r1.shift()) {
+    while(cur = _reactions.shift()) {
       const handler = cur[handlerName];
-      let curValue = this._value;
-      if (handler) {
-        curValue = handler(curValue);
-      }
-      cur._res(curValue);
-    }
-    while(cur = r2.shift()) {
-      cur[action](this._value);
+      cur[_state || handler ? `_res` : `_rej`]
+        (handler ? handler(_value) : _value);
     }
   }
 
   /**
    * @return {string}
    */
-  toString() {
+  inspect() {
     if (`_state` in this) {
       const state = this._state ? `` : ` <rejected>`;
       return `Prom {${state} ${this._value} }`;
     }
     return `Prom { <pending> }`;
+  }
+
+  /**
+   * @return {string}
+   */
+  toString() {
+    return `[object Prom]`;
   }
 
 }
