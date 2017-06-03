@@ -1,5 +1,32 @@
 'use strict';
 
+const nextTask = require(`next-task`);
+
+let nextJob = null;
+
+class Job {
+  constructor() {
+    this.proms = [];
+  }
+  call() {
+    nextJob = null;
+    let cur;
+    while(cur = this.proms.shift()) {
+      cur._runReactions();
+    }
+  }
+}
+
+/**
+ * @param {!Prom} prom - Prom object for async runing reactions
+ */
+function enqueueJob(prom) {
+  if (!nextJob) {
+    nextTask(nextJob = new Job);
+  }
+  nextJob.proms.push(prom);
+}
+
 module.exports = class Prom {
 
   /**
@@ -25,6 +52,9 @@ module.exports = class Prom {
       prom._catchF = catchF;
       this._catchs = this._catchs || [];
       this._catchs.push(prom);
+    }
+    if (`_state` in this) {
+      enqueueJob(this);
     }
     return prom;
   }
@@ -92,37 +122,15 @@ module.exports = class Prom {
     if (`_state` in this) {
       return;
     }
+    if (value === this) {
+      return this._rej(new TypeError(`Self resolution`));
+    }
     if (value && typeof value.then === `function`) {
-      value.then(arg => this._res(arg), arg => this._rej(arg));
-      return;
+      return value.then(arg => this._res(arg), arg => this._rej(arg));
     }
     this._state = true;
     this._value = value;
-    const thens = this._thens || [];
-    for (let i = 0; i < thens.length; ++i) {
-      const cur = thens[i];
-      if (cur._all) {
-        cur._count++;
-        const index = cur._all.indexOf(this);
-        cur._all[index] = null;
-        cur._value[index] = value;
-        if (cur._count === cur._all.length) {
-          cur._res(cur._value);
-        }
-        continue;
-      }
-      const _thenF = cur._thenF;
-      let curValue = value;
-      if (_thenF) {
-        curValue = _thenF(curValue);
-      }
-      cur._res(curValue);
-    }
-    const catchs = this._catchs || [];
-    for (let i = 0; i < catchs.length; ++i) {
-      const cur = catchs[i];
-      cur._res(value);
-    }
+    this._runReactions();
   }
 
   /**
@@ -134,20 +142,28 @@ module.exports = class Prom {
     }
     this._state = false;
     this._value = value;
-    const catchs = this._catchs || [];
-    for (let i = 0; i < catchs.length; ++i) {
-      const cur = catchs[i];
-      const _catchF = cur._catchF;
-      let curValue = value;
-      if (_catchF) {
-        curValue = _catchF(curValue);
+    this._runReactions();
+  }
+
+  _runReactions() {
+    let [r1, r2] = [this._thens || [], this._catchs || []];
+    let handlerName = `_thenF`, action = `_res`;
+    let cur;
+    if (this._state === false) {
+      [r1, r2] = [r2, r1];
+      handlerName = `_catchF`;
+      action = `_rej`;
+    }
+    while(cur = r1.shift()) {
+      const handler = cur[handlerName];
+      let curValue = this._value;
+      if (handler) {
+        curValue = handler(curValue);
       }
       cur._res(curValue);
     }
-    const thens = this._thens || [];
-    for (let i = 0; i < thens.length; ++i) {
-      const cur = thens[i];
-      cur._rej(value);
+    while(cur = r2.shift()) {
+      cur[action](this._value);
     }
   }
 

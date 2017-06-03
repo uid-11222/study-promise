@@ -11,9 +11,11 @@
     "study",
     "promise"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "next-task": "^1.0.9"
+  },
   "devDependencies": {
-    "mocha": "^3.4.1"
+    "mocha": "^3.4.2"
   },
   "author": "uid-11222",
   "homepage": "https://github.com/uid-11222/study-promise",
