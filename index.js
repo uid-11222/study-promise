@@ -85,6 +85,9 @@ module.exports = class Prom {
     return prom;
   }
 
+  /**
+   * @TODO - this method does not work
+   */
   static all(proms) {
     proms = Array.from(proms);
     if (proms.length === 0) {
@@ -102,6 +105,9 @@ module.exports = class Prom {
     return prom;
   }
 
+  /**
+   * @TODO - this method does not work
+   */
   static race(proms) {
     proms = Array.from(proms);
     const prom = Object.create(Prom.prototype);

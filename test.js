@@ -9,6 +9,9 @@ const assert = value => {
     throw new Error(`not a true: ${value}`);
   }
 };
+const throwF = () => {
+  throw new Error;
+};
 
 const tests = Prom => function() {
 
@@ -280,6 +283,55 @@ const tests = Prom => function() {
     assert(inspect(g).includes(`pending`));
     assert(value === undefined);
     assert(count === 0);
+  });
+
+  it(`works with many then and catch`, done => {
+    const p = Prom.resolve(5);
+    let count = 0;
+    const add = () => {
+      count++;
+    };
+    const throwF = () => {
+      throw new Error;
+    };
+    p.then(add, throwF);
+    p.catch(throwF);
+    p.then(() => {
+      assert(count === 1);
+    });
+    p.then(add);
+    p.then(() => {
+      assert(count === 2);
+      done();
+    });
+  });
+
+  it(`works with many rejected catch`, done => {
+    const p = Prom.reject(5);
+    let count = 0;
+    const add = () => {
+      count++;
+    };
+    p.then(throwF, add);
+    p.then(throwF);
+    p.catch(() => {
+      assert(count === 1);
+    });
+    p.catch(add);
+    p.catch(() => {
+      assert(count === 2);
+      done();
+    });
+  });
+
+  it(`pass value`, done => {
+    Prom.resolve(2)
+      .then(arg => 3 * arg)
+      .then(arg => 5 * arg, throwF)
+      .then(arg => {
+        assert(arg === 2 * 3 * 5);
+        done();
+      });
   });
 
 };
